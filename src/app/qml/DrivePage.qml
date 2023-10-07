@@ -157,6 +157,7 @@ Page {
             }
         
             CheckBox {
+                id: deleteCheck
                 text: qsTr("Delete download after writing")
                 onCheckedChanged: mainWindow.eraseVariant = !mainWindow.eraseVariant
             }
@@ -181,4 +182,68 @@ Page {
             PropertyChanges { target: nextButton; enabled: driveCombo.enabled && releases.localFile.iso }
         }
     ]
+
+    Keys.onPressed: (event)=> {
+        if (drivePage.state == "Downloading") {
+            switch (event.key) {
+                case (Qt.Key_1):
+                    closePopups()
+                    if (!versionCombo.down)
+                        versionCombo.popup.open()
+                    break
+                case (Qt.Key_2):
+                    closePopups()
+                    if (!hwArchCombo.down)
+                        hwArchCombo.popup.open()
+                    break
+                case (Qt.Key_3):
+                    closePopups()
+                    if (!driveCombo.down && driveCombo.count)
+                        driveCombo.popup.open()
+                    break
+                case (Qt.Key_D):
+                case (Qt.Key_4):
+                    deleteCheck.checked = !deleteCheck.checked
+                    break
+                case (Qt.Key_Return):
+                case (Qt.Key_Enter):
+                    closePopups()
+                    break
+                case (Qt.Key_Up):
+                    if (versionCombo.down && versionCombo.currentIndex > 0)
+                        versionCombo.currentIndex -= 1
+                    else if (hwArchCombo.down && hwArchCombo.currentIndex > 0)
+                        hwArchCombo.currentIndex -= 1
+                    else if (driveCombo.down && driveCombo.currentIndex > 0)
+                        driveCombo.currentIndex -= 1
+                    break
+                case (Qt.Key_Down):
+                    if (versionCombo.down && versionCombo.currentIndex < versionCombo.count - 1)
+                        versionCombo.currentIndex += 1
+                    else if (hwArchCombo.down && hwArchCombo.currentIndex < hwArchCombo.count - 1)
+                        hwArchCombo.currentIndex += 1
+                    else if (driveCombo.down && driveCombo.currentIndex < driveCombo.count - 1)
+                        driveCombo.currentIndex += 1
+                    break
+            }
+        } else {
+            switch (event.key) {
+                case (Qt.Key_1):
+                    if (portalFileDialog.isAvailable)
+                        portalFileDialog.open()
+                    else
+                        fileDialog.open()
+                    break
+                case (Qt.Key_2):
+                    driveCombo.focus = true
+                    break
+            }
+        }
+    }
+
+    function closePopups() {
+        versionCombo.popup.close()
+        hwArchCombo.popup.close()
+        driveCombo.popup.close()
+    }
 }

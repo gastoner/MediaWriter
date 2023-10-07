@@ -26,6 +26,7 @@ import QtQml 6.2
 Page {
     id: versionPage
     property int prevSource: 0
+    property int prevIndex: 0
     
     ColumnLayout {
         anchors.fill: parent
@@ -49,25 +50,28 @@ Page {
             }
         
             RadioButton {
-                checked: true
+                checked: releases.filterSource == Units.Source.Product
                 text: qsTr("Official Editions")
                 onClicked: changeFilter(Units.Source.Product)
                 ButtonGroup.group: radioGroup
             }
     
             RadioButton {
+                checked: releases.filterSource == Units.Source.Emerging
                 text: qsTr("Emerging Editions")
                 onClicked: changeFilter(Units.Source.Emerging)
                 ButtonGroup.group: radioGroup
             }
             
             RadioButton {
+                checked: releases.filterSource == Units.Source.Spins
                 text: qsTr("Spins")
                 onClicked: changeFilter(Units.Source.Spins)
                 ButtonGroup.group: radioGroup
             }
             
             RadioButton {
+                checked: releases.filterSource == Units.Source.Labs
                 text: qsTr("Labs")
                 onClicked: changeFilter(Units.Source.Labs)
                 ButtonGroup.group: radioGroup
@@ -100,6 +104,40 @@ Page {
         // index while changing filter above
         if (selectFromComboBox.currentValue) {
             releases.selectedIndex = parseInt(selectFromComboBox.currentValue)
+        }
+    }
+
+    Keys.onPressed: (event)=> {
+        switch (event.key) {
+            case (Qt.Key_1):
+                changeFilter(Units.Source.Product)
+                break
+            case (Qt.Key_2):
+                changeFilter(Units.Source.Emerging)
+                break
+            case (Qt.Key_3):
+                changeFilter(Units.Source.Spins)
+                break
+            case (Qt.Key_4):
+                changeFilter(Units.Source.Labs)
+                break
+            case (Qt.Key_Return):
+            case (Qt.Key_Enter):
+                if (selectFromComboBox.down)
+                    selectFromComboBox.popup.close()
+                else
+                    selectFromComboBox.popup.open()
+                break
+            case (Qt.Key_Up):
+                if (selectFromComboBox.down)
+                    if (releases.firstSource < releases.selectedIndex)
+                        selectFromComboBox.currentIndex -= 1
+                break
+            case (Qt.Key_Down):
+                if (selectFromComboBox.down)
+                    if (selectFromComboBox.count > selectFromComboBox.currentIndex + 1)
+                        selectFromComboBox.currentIndex += 1
+                break
         }
     }
 }
