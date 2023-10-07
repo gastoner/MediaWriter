@@ -66,7 +66,6 @@ Page {
                 text: qsTr("Select .iso file")
                 onClicked: {
                     selectedOption = Units.MainSelect.Write
-                    releases.selectLocalFile("")
                 }
                 ButtonGroup.group: radioGroup
             }

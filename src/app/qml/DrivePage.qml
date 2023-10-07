@@ -107,6 +107,7 @@ Page {
                     Connections {
                         target: portalFileDialog
                         function onFileSelected(fileName) {
+                            mainWindow.fileName = fileName
                             releases.selectLocalFile(fileName)
                         }
                     }

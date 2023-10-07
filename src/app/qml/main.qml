@@ -36,6 +36,7 @@ ApplicationWindow {
     property int selectedOption: Units.MainSelect.Download
     property QtObject lastRestoreable
     property bool eraseVariant: false
+    property string fileName: ""
 
     ColumnLayout {
         id: mainLayout
@@ -130,7 +131,6 @@ ApplicationWindow {
                 StateChangeScript {
                     script: {
                         //reset of source on versionPage
-                        selectedOption = Units.MainSelect.Download
                         releases.filterSource = 0
                         if (stackView.depth > 1)  {
                             while (stackView.depth != 1) {
@@ -298,11 +298,11 @@ ApplicationWindow {
         if (selectedPage == Units.Page.MainPage) {
             if (selectedOption == Units.MainSelect.Write) {
                 if (releases.localFile.iso)
-                    releases.selectLocalFile()
+                    releases.selectLocalFile(fileName)
                 selectedPage = Units.Page.DrivePage
-            } else if (selectedOption == Units.MainSelect.Restore)
+            } else if (selectedOption == Units.MainSelect.Restore && drives.lastRestoreable)
                 selectedPage = Units.Page.RestorePage
-            else
+            else if (selectedOption == Units.MainSelect.Download)
                 selectedPage = Units.Page.VersionPage
         } else if (selectedPage == Units.Page.VersionPage) {
             selectedPage += 1
