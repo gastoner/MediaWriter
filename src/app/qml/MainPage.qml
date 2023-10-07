@@ -62,6 +62,7 @@ Page {
             }
     
             RadioButton {
+                checked: mainWindow.selectedOption == Units.MainSelect.Write
                 text: qsTr("Select .iso file")
                 onClicked: {
                     selectedOption = Units.MainSelect.Write
@@ -73,6 +74,7 @@ Page {
             RadioButton {
                 id: restoreRadio
                 visible: drives.lastRestoreable
+                checked: mainWindow.selectedOption == Units.MainSelect.Restore
                 text: drives.lastRestoreable ? qsTr("Restore <b>%1</b>").arg(drives.lastRestoreable.name) : ""
                 onClicked: {
                     selectedOption = Units.MainSelect.Restore
@@ -89,6 +91,21 @@ Page {
                     }
                 }
             }
+        }
+    }
+
+    Keys.onPressed: (event)=> {
+        switch (event.key) {
+            case (Qt.Key_1):
+                mainWindow.selectedOption = Units.MainSelect.Download
+                break
+            case (Qt.Key_2):
+                mainWindow.selectedOption = Units.MainSelect.Write
+                break
+            case (Qt.Key_3):
+                if (restoreRadio.visible)
+                    mainWindow.selectedOption = Units.MainSelect.Restore
+                break
         }
     }
 }

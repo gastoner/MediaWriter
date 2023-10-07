@@ -39,6 +39,7 @@ ApplicationWindow {
         anchors.fill: parent
         anchors.margins: units.gridUnit 
         spacing: units.gridUnit
+        focus: true
         
         Column {
             leftPadding: units.gridUnit
@@ -94,6 +95,11 @@ ApplicationWindow {
                 onClicked: aboutDialog.close()
                 text: qsTr("Close")
             }
+        }
+
+        Keys.onPressed: (event)=> {
+            if (event.key == Qt.Key_I)
+                aboutDialog.close()
         }
     }
 }

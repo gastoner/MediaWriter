@@ -43,6 +43,7 @@ ApplicationWindow {
         anchors.fill: parent
         anchors.margins: units.gridUnit 
         spacing: units.gridUnit
+        focus: true
         
         Column {
             leftPadding: units.gridUnit
@@ -90,22 +91,7 @@ ApplicationWindow {
             
             Button {
                 id: cancelButton
-                onClicked: {
-                    cancelDialog.close()
-                    // Store release state locally as drives.selected.cancel() makes
-                    // it go to failed state if we cancel the writing process
-                    var releaseState = releases.variant.status
-                    if (drives.selected)
-                        drives.selected.cancel()
-                    if (mainWindow.selectedPage == Units.Page.DownloadPage &&
-                        (releaseState === Units.DownloadStatus.Writing || releaseState === Units.DownloadStatus.Write_Verifying || releaseState === Units.DownloadStatus.Writing_Not_Possible)) {
-                        drives.lastRestoreable = drivesSelected
-                        drives.lastRestoreable.setRestoreStatus(Units.RestoreStatus.Contains_Live)
-                    }
-                    releases.variant.resetStatus()
-                    downloadManager.cancel()
-                    selectedPage = Units.Page.MainPage
-                }
+                onClicked: cancelWrite()
                 text: {
                     if (releases.variant.status == Units.DownloadStatus.Downloading || releases.variant.status === Units.DownloadStatus.Download_Verifying)
                         qsTr("Cancel Download")
@@ -118,6 +104,37 @@ ApplicationWindow {
                 }  
             }
         }
+        Keys.onPressed: (event)=> {
+            switch (event.key) {
+                case (Qt.Key_Escape):
+                    cancelDialog.close()
+                    break
+                case (Qt.Key_Return):
+                case (Qt.Key_Enter):
+                    if (cancelDialog.visible)
+                        cancelWrite()
+                    else
+                        cancelDialog.show()
+                    break
+            }
+        }
+    }
+
+    function cancelWrite() {
+        cancelDialog.close()
+        // Store release state locally as drives.selected.cancel() makes
+        // it go to failed state if we cancel the writing process
+        var releaseState = releases.variant.status
+        if (drives.selected)
+            drives.selected.cancel()
+        if (mainWindow.selectedPage == Units.Page.DownloadPage &&
+            (releaseState === Units.DownloadStatus.Writing || releaseState === Units.DownloadStatus.Write_Verifying || releaseState === Units.DownloadStatus.Writing_Not_Possible)) {
+            drives.lastRestoreable = drivesSelected
+            drives.lastRestoreable.setRestoreStatus(Units.RestoreStatus.Contains_Live)
+        }
+        releases.variant.resetStatus()
+        downloadManager.cancel()
+        selectedPage = Units.Page.MainPage
     }
 }
 

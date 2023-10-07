@@ -49,6 +49,7 @@ ApplicationWindow {
         StackView {
             id: stackView
             initialItem: "MainPage.qml"
+            focus: true
             
             Layout.fillHeight: true
             Layout.fillWidth: true
@@ -119,21 +120,12 @@ ApplicationWindow {
                 PropertyChanges { 
                     target: prevButton
                     text: getPrevButtonText()
-                    onClicked: aboutDialog.show()
+                    onClicked: setPreviousPage()
                 }
                 PropertyChanges { 
                     target: nextButton
                     visible: true
-                    onClicked: {
-                        if (selectedOption == Units.MainSelect.Write) {
-                            if (releases.localFile.iso)
-                                releases.selectLocalFile()
-                            selectedPage = Units.Page.DrivePage 
-                        } else if (selectedOption == Units.MainSelect.Restore)
-                            selectedPage = Units.Page.RestorePage
-                        else
-                            selectedPage = Units.Page.VersionPage 
-                    }
+                    onClicked: setNextPage()
                 }
                 StateChangeScript {
                     script: {
@@ -152,8 +144,8 @@ ApplicationWindow {
                 name: "versionPage"
                 when: selectedPage == Units.Page.VersionPage
                 PropertyChanges { target: mainWindow; title: qsTr("Select Fedora Version") }
-                PropertyChanges { target: nextButton; visible: true; onClicked: selectedPage += 1 } 
-                PropertyChanges { target: prevButton; visible: true; onClicked: selectedPage -= 1 }
+                PropertyChanges { target: nextButton; visible: true; onClicked: setNextPage() }
+                PropertyChanges { target: prevButton; visible: true; onClicked: setPreviousPage() }
                 StateChangeScript {
                     script: {
                         //state was pushing same page when returing from drivePage
@@ -172,27 +164,12 @@ ApplicationWindow {
                 PropertyChanges {
                     target: nextButton;
                     visible: true
-                    onClicked: {
-                        selectedPage = Units.Page.DownloadPage 
-                        if (selectedOption != Units.MainSelect.Write) 
-                            releases.variant.download()
-                        if (drives.length) {
-                            drives.selected.setImage(releases.variant)
-                            drives.selected.write(releases.variant)
-                        }
-                    }
+                    onClicked: setNextPage()
                 }
                 PropertyChanges {
                     target: prevButton
                     visible: true
-                    onClicked: {
-                        if (selectedOption == Units.MainSelect.Write)
-                            selectedPage = Units.Page.MainPage
-                        else {
-                            selectedPage -= 1 
-                            stackView.pop()
-                        }
-                    }
+                    onClicked: setPreviousPage()
                 }
                 StateChangeScript { 
                     script: { 
@@ -214,32 +191,11 @@ ApplicationWindow {
                 PropertyChanges {
                     target: prevButton
                     visible: true
-                    onClicked: {
-                        if (releases.variant.status === Units.DownloadStatus.Write_Verifying || releases.variant.status === Units.DownloadStatus.Writing || releases.variant.status === Units.DownloadStatus.Downloading || releases.variant.status === Units.DownloadStatus.Download_Verifying) {
-                            cancelDialog.show()
-                        } else {
-                            releases.variant.resetStatus()
-                            downloadManager.cancel()
-                            mainWindow.selectedPage = Units.Page.MainPage
-                        }
-                    }
+                    onClicked: setPreviousPage()
                 }
                 PropertyChanges {
                     target: nextButton
-                    onClicked: {
-                        if (releases.variant.status === Units.DownloadStatus.Finished) {
-                            drives.lastRestoreable = drives.selected
-                            drives.lastRestoreable.setRestoreStatus(Units.RestoreStatus.Contains_Live)
-                            releases.variant.resetStatus()
-                            downloadManager.cancel()
-                            selectedPage = Units.Page.MainPage
-                        } else if ((releases.variant.status === Units.DownloadStatus.Failed && drives.length) || releases.variant.status === Units.DownloadStatus.Failed_Download || (releases.variant.status === Units.DownloadStatus.Failed_Verification && drives.length) || releases.variant.status === Units.DownloadStatus.Ready) {
-                            if (selectedOption != Units.MainSelect.Write)
-                                releases.variant.download()
-                            drives.selected.setImage(releases.variant)
-                            drives.selected.write(releases.variant)
-                        }
-                    }
+                    onClicked: setNextPage()
                 }
             },
             State {
@@ -252,23 +208,45 @@ ApplicationWindow {
                 PropertyChanges {
                     target: nextButton
                     visible: true
-                    onClicked: {
-                        if (lastRestoreable && lastRestoreable.restoreStatus == Units.RestoreStatus.Restored)
-                            selectedPage = Units.Page.MainPage 
-                        else
-                            drives.lastRestoreable.restore() 
-                    }
+                    onClicked: setNextPage()
                 }
                 PropertyChanges {
                     target: prevButton
                     visible: true
-                    onClicked: selectedPage = Units.Page.MainPage 
+                    onClicked: setPreviousPage()
                 }
                 StateChangeScript { 
                     script: { stackView.push("RestorePage.qml") }
                 }
             }
         ]
+
+        Keys.onPressed: (event)=> {
+            switch (event.key) {
+                case (Qt.Key_I):
+                    if (selectedPage != Units.Page.DownloadPage)
+                        aboutDialog.show()
+                    break
+                case (Qt.Key_Right):
+                case (Qt.Key_N):
+                    if (selectedOption == Units.MainSelect.Write && selectedPage == Units.Page.DrivePage) {
+                        if (drives.length && releases.localFile.iso)
+                            mainWindow.setNextPage()
+                    } else
+                        mainWindow.setNextPage()
+                    break
+                case (Qt.Key_Left):
+                case (Qt.Key_P):
+                    if (!(lastRestoreable && lastRestoreable.restoreStatus == Units.RestoreStatus.Restoring))
+                        setPreviousPage()
+                    break
+                case (Qt.Key_Enter):
+                case (Qt.Key_Return):
+                    if (selectedPage == Units.Page.DownloadPage && releases.variant.status != Units.DownloadStatus.Finished)
+                        cancelDialog.show()
+                    break
+            }
+        }
     }
     
     Units {
@@ -314,6 +292,71 @@ ApplicationWindow {
         else if (mainLayout.state == "downloadPage")
             return qsTr("Cancel")
         return qsTr("Previous")
+    }
+
+    function setNextPage() {
+        if (selectedPage == Units.Page.MainPage) {
+            if (selectedOption == Units.MainSelect.Write) {
+                if (releases.localFile.iso)
+                    releases.selectLocalFile()
+                selectedPage = Units.Page.DrivePage
+            } else if (selectedOption == Units.MainSelect.Restore)
+                selectedPage = Units.Page.RestorePage
+            else
+                selectedPage = Units.Page.VersionPage
+        } else if (selectedPage == Units.Page.VersionPage) {
+            selectedPage += 1
+        } else if (selectedPage == Units.Page.DrivePage) {
+            selectedPage = Units.Page.DownloadPage
+            if (selectedOption != Units.MainSelect.Write)
+                releases.variant.download()
+            if (drives.length) {
+                drives.selected.setImage(releases.variant)
+                drives.selected.write(releases.variant)
+            }
+        } else if (selectedPage == Units.Page.DownloadPage) {
+            if (releases.variant.status === Units.DownloadStatus.Finished) {
+                drives.lastRestoreable = drives.selected
+                drives.lastRestoreable.setRestoreStatus(Units.RestoreStatus.Contains_Live)
+                releases.variant.resetStatus()
+                downloadManager.cancel()
+                selectedPage = Units.Page.MainPage
+            } else if ((releases.variant.status === Units.DownloadStatus.Failed && drives.length) || releases.variant.status === Units.DownloadStatus.Failed_Download || (releases.variant.status === Units.DownloadStatus.Failed_Verification && drives.length) || releases.variant.status === Units.DownloadStatus.Ready) {
+                if (selectedOption != Units.MainSelect.Write)
+                    releases.variant.download()
+                drives.selected.setImage(releases.variant)
+                drives.selected.write(releases.variant)
+            }
+        } else {
+            if (lastRestoreable && lastRestoreable.restoreStatus == Units.RestoreStatus.Restored)
+                selectedPage = Units.Page.MainPage
+            else
+                drives.lastRestoreable.restore()
+        }
+    }
+
+    function setPreviousPage() {
+        if (selectedPage == Units.Page.MainPage)
+            aboutDialog.show()
+        else if (selectedPage == Units.Page.VersionPage)
+            selectedPage -= 1
+        else if (selectedPage == Units.Page.DrivePage) {
+            if (selectedOption == Units.MainSelect.Write)
+                selectedPage = Units.Page.MainPage
+            else {
+                selectedPage -= 1
+                stackView.pop()
+            }
+        } else if (selectedPage == Units.Page.DownloadPage) {
+            if (releases.variant.status === Units.DownloadStatus.Write_Verifying || releases.variant.status === Units.DownloadStatus.Writing || releases.variant.status === Units.DownloadStatus.Downloading || releases.variant.status === Units.DownloadStatus.Download_Verifying) {
+                cancelDialog.show()
+            } else {
+                releases.variant.resetStatus()
+                downloadManager.cancel()
+                mainWindow.selectedPage = Units.Page.MainPage
+            }
+        } else
+            selectedPage = Units.Page.MainPage
     }
 }
 
