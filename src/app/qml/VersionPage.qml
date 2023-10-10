@@ -107,6 +107,19 @@ Page {
         }
     }
 
+    StackView.onActivated: {
+        prevButton.text = qsTr("Previous")
+        nextButton.text = qsTr("Next")
+    }
+
+    function setNextPage() {
+        mainWindow.selectedPage += 1
+    }
+
+    function setPreviousPage() {
+        selectedPage -= 1
+    }
+
     Keys.onPressed: (event)=> {
         switch (event.key) {
             case (Qt.Key_1):
@@ -137,6 +150,17 @@ Page {
                 if (selectFromComboBox.down)
                     if (selectFromComboBox.count > selectFromComboBox.currentIndex + 1)
                         selectFromComboBox.currentIndex += 1
+                break
+            case (Qt.Key_I):
+                aboutDialog.show()
+                break
+            case (Qt.Key_Right):
+            case (Qt.Key_N):
+                setNextPage()
+                break
+            case (Qt.Key_Left):
+            case (Qt.Key_P):
+                setPreviousPage()
                 break
         }
     }

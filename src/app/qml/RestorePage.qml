@@ -179,4 +179,40 @@ Page {
             }
         }
     ]
+
+    StackView.onActivated: {
+        prevButton.text = qsTr("Previous")
+        if (lastRestoreable && lastRestoreable.restoreStatus == Units.RestoreStatus.Restored)
+            nextButton.text = qsTr("Finish")
+        else
+            nextButton.text = qsTr("Restore")
+    }
+
+    function setNextPage() {
+        if (lastRestoreable && lastRestoreable.restoreStatus == Units.RestoreStatus.Restored)
+            selectedPage = Units.Page.MainPage
+        else
+            drives.lastRestoreable.restore()
+    }
+
+    function setPreviousPage() {
+        selectedPage = Units.Page.MainPage
+    }
+
+    Keys.onPressed: (event)=> {
+        switch (event.key) {
+            case (Qt.Key_I):
+                aboutDialog.show()
+                break
+            case (Qt.Key_Right):
+            case (Qt.Key_N):
+                setNextPage()
+                break
+            case (Qt.Key_Left):
+            case (Qt.Key_P):
+                if (!(lastRestoreable && lastRestoreable.restoreStatus == Units.RestoreStatus.Restoring))
+                    setPreviousPage()
+                break
+        }
+    }
 }

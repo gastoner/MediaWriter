@@ -184,6 +184,21 @@ Page {
     ]
 
     Keys.onPressed: (event)=> {
+        switch (event.key) {
+            case (Qt.Key_Right):
+            case (Qt.Key_N):
+                if (selectedOption == Units.MainSelect.Write) {
+                    if (drives.length && releases.localFile.iso)
+                        setNextPage()
+                } else
+                    setNextPage()
+                break
+            case (Qt.Key_Left):
+            case (Qt.Key_P):
+                setPreviousPage()
+                break
+        }
+
         if (drivePage.state == "Downloading") {
             switch (event.key) {
                 case (Qt.Key_1):
@@ -238,6 +253,35 @@ Page {
                     driveCombo.focus = true
                     break
             }
+        }
+    }
+
+    StackView.onActivated: {
+        prevButton.text = qsTr("Previous")
+        if (selectedOption == Units.MainSelect.Write || downloadManager.isDownloaded(releases.selected.version.variant.url))
+            nextButton.text = qsTr("Write")
+        else if (Qt.platform.os === "windows" || Qt.platform.os === "osx")
+            nextButton.text = qsTr("Download && Write")
+        else
+            nextButton.text = qsTr("Download & Write")
+    }
+
+    function setNextPage() {
+        selectedPage = Units.Page.DownloadPage
+        if (selectedOption != Units.MainSelect.Write)
+            releases.variant.download()
+        if (drives.length) {
+            drives.selected.setImage(releases.variant)
+            drives.selected.write(releases.variant)
+            }
+    }
+
+    function setPreviousPage() {
+        if (selectedOption == Units.MainSelect.Write)
+            selectedPage = Units.Page.MainPage
+        else {
+            selectedPage -= 1
+            stackView.pop()
         }
     }
 

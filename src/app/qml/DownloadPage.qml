@@ -338,6 +338,18 @@ Page {
         }
     }
 
+    StackView.onActivated: {
+        prevButton.text = qsTr("Cancel")
+        if (releases.variant.status === Units.DownloadStatus.Write_Verifying || releases.variant.status === Units.DownloadStatus.Writing || releases.variant.status === Units.DownloadStatus.Downloading || releases.variant.status === Units.DownloadStatus.Download_Verifying)
+            nextButton.text = qsTr("Cancel")
+        else if (releases.variant.status == Units.DownloadStatus.Ready)
+            nextButton.text =  qsTr("Write")
+        else if (releases.variant.status === Units.DownloadStatus.Finished)
+            nextButton.text = qsTr("Finish")
+        else
+            nextButton.text = qsTr("Retry")
+    }
+
     function getPrevButtonState() {
         // There will be only [Finish] button on the right side so [Cancel] button
         // is not necessary
@@ -356,6 +368,50 @@ Page {
         }
 
         return false
+    }
+
+    function setNextPage() {
+        if (releases.variant.status === Units.DownloadStatus.Finished) {
+            drives.lastRestoreable = drives.selected
+            drives.lastRestoreable.setRestoreStatus(Units.RestoreStatus.Contains_Live)
+            releases.variant.resetStatus()
+            downloadManager.cancel()
+            selectedPage = Units.Page.MainPage
+        } else if ((releases.variant.status === Units.DownloadStatus.Failed && drives.length) || releases.variant.status === Units.DownloadStatus.Failed_Download || (releases.variant.status === Units.DownloadStatus.Failed_Verification && drives.length) || releases.variant.status === Units.DownloadStatus.Ready) {
+            if (selectedOption != Units.MainSelect.Write)
+                releases.variant.download()
+            drives.selected.setImage(releases.variant)
+            drives.selected.write(releases.variant)
+        }
+    }
+
+    function setPreviousPage() {
+        if (releases.variant.status === Units.DownloadStatus.Write_Verifying || releases.variant.status === Units.DownloadStatus.Writing || releases.variant.status === Units.DownloadStatus.Downloading || releases.variant.status === Units.DownloadStatus.Download_Verifying) {
+            cancelDialog.show()
+        } else {
+            releases.variant.resetStatus()
+            downloadManager.cancel()
+            mainWindow.selectedPage = Units.Page.MainPage
+        }
+    }
+
+    Keys.onPressed: (event)=> {
+        switch (event.key) {
+            case (Qt.Key_Right):
+            case (Qt.Key_N):
+                setNextPage()
+                break
+            case (Qt.Key_Left):
+            case (Qt.Key_P):
+                setPreviousPage()
+                break
+            case (Qt.Key_Enter):
+            case (Qt.Key_Return):
+            case (Qt.Key_A):
+                if (releases.variant.status != Units.DownloadStatus.Finished)
+                    cancelDialog.show()
+                break
+        }
     }
 }
 

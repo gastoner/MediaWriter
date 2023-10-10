@@ -94,6 +94,26 @@ Page {
         }
     }
 
+    StackView.onActivated: {
+        prevButton.text = qsTr("About")
+        nextButton.text = qsTr("Next")
+    }
+
+    function setNextPage() {
+        if (mainWindow.selectedOption == Units.MainSelect.Write) {
+            if (releases.localFile.iso)
+                releases.selectLocalFile()
+            mainWindow.selectedPage = Units.Page.DrivePage
+        } else if (selectedOption == Units.MainSelect.Restore)
+            mainWindow.selectedPage = Units.Page.RestorePage
+        else
+            mainWindow.selectedPage = Units.Page.VersionPage
+    }
+
+    function setPreviousPage() {
+        aboutDialog.show()
+    }
+
     Keys.onPressed: (event)=> {
         switch (event.key) {
             case (Qt.Key_1):
@@ -105,6 +125,17 @@ Page {
             case (Qt.Key_3):
                 if (restoreRadio.visible)
                     mainWindow.selectedOption = Units.MainSelect.Restore
+                break
+            case (Qt.Key_I):
+                aboutDialog.show()
+                break
+            case (Qt.Key_Right):
+            case (Qt.Key_N):
+                setNextPage()
+                break
+            case (Qt.Key_Left):
+            case (Qt.Key_P):
+                setPreviousPage()
                 break
         }
     }
