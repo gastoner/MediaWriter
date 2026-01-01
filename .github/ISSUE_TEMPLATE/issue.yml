@@ -1,6 +1,5 @@
 name: Issue 🐞
 description: Report an issue or feature request
-type: issue
 
 body:
   - type: markdown
