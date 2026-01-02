@@ -27,10 +27,18 @@ class RestoreJob : public Job
 {
     Q_OBJECT
 public:
-    explicit RestoreJob(const QString &where);
+    explicit RestoreJob(const QString &where,
+                        const QString &partitionTable = "gpt",
+                        const QString &filesystem = "exfat",
+                        const QString &label = QString());
 
 public slots:
     void work() override;
+
+private:
+    QString m_partitionTable;
+    QString m_filesystem;
+    QString m_label;
 };
 
 #endif // RESTOREJOB_H

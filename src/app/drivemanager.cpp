@@ -343,3 +343,60 @@ void Drive::setRestoreStatus(Drive::RestoreStatus o)
         emit restoreStatusChanged();
     }
 }
+
+QString Drive::partitionTable() const
+{
+    return m_partitionTable;
+}
+
+void Drive::setPartitionTable(const QString &partitionTable)
+{
+    if (m_partitionTable != partitionTable) {
+        m_partitionTable = partitionTable;
+        emit partitionTableChanged();
+    }
+}
+
+QString Drive::filesystem() const
+{
+    return m_filesystem;
+}
+
+void Drive::setFilesystem(const QString &filesystem)
+{
+    if (m_filesystem != filesystem) {
+        m_filesystem = filesystem;
+        emit filesystemChanged();
+    }
+}
+
+QString Drive::filesystemLabel() const
+{
+    return m_filesystemLabel;
+}
+
+void Drive::setFilesystemLabel(const QString &label)
+{
+    if (m_filesystemLabel != label) {
+        m_filesystemLabel = label;
+        emit filesystemLabelChanged();
+    }
+}
+
+QStringList Drive::availableFilesystems() const
+{
+#ifdef __linux__
+    return {"exfat", "ext4", "ext3", "ext2", "btrfs", "xfs", "vfat", "ntfs"};
+#elif defined(__APPLE__)
+    return {"ExFAT", "FAT32", "HFS+", "APFS"};
+#elif defined(_WIN32)
+    return {"exFAT", "FAT32", "NTFS"};
+#else
+    return {"exfat"};
+#endif
+}
+
+QStringList Drive::availablePartitionTables() const
+{
+    return {"gpt", "dos"};
+}

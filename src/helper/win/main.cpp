@@ -36,13 +36,24 @@ int main(int argc, char *argv[])
     }
 
     const QStringList args = app.arguments();
-    if (args.count() == 3 && args[1] == "restore") {
-        new RestoreJob(args[2], &app);
+    if (args.count() >= 3 && args[1] == "restore") {
+        // restore <driveNumber> [partitionTable] [filesystem] [label]
+        QString driveNumber = args[2];
+        QString partitionTable = args.count() > 3 ? args[3] : "gpt";
+        QString filesystem = args.count() > 4 ? args[4] : "exfat";
+        QString label = args.count() > 5 ? args[5] : QString();
+        new RestoreJob(driveNumber, partitionTable, filesystem, label, &app);
     } else if (args.count() == 4 && args[1] == "write") {
         new WriteJob(args[2], args[3], &app);
     } else {
         QTextStream err(stderr);
         err << "Helper: Wrong arguments entered\n";
+        err << "Usage:\n";
+        err << "  helper write <image> <driveNumber>\n";
+        err << "  helper restore <driveNumber> [partitionTable] [filesystem] [label]\n";
+        err << "    partitionTable: gpt (default) or dos/mbr\n";
+        err << "    filesystem: exfat (default), fat32, ntfs\n";
+        err << "    label: optional volume label\n";
         return 1;
     }
     return app.exec();

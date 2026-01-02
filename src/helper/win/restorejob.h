@@ -31,7 +31,11 @@ class RestoreJob : public QObject
 {
     Q_OBJECT
 public:
-    explicit RestoreJob(const QString &where, QObject *parent);
+    explicit RestoreJob(const QString &where,
+                        const QString &partitionTable = "gpt",
+                        const QString &filesystem = "exfat",
+                        const QString &label = QString(),
+                        QObject *parent = nullptr);
 
 signals:
 
@@ -41,6 +45,10 @@ private slots:
 private:
     QTextStream m_out{stdout};
     QTextStream m_err{stderr};
+
+    QString m_partitionTable;
+    QString m_filesystem;
+    QString m_label;
 
     std::unique_ptr<WinDiskManagement> m_diskManagement;
     std::unique_ptr<WinDisk> m_disk;

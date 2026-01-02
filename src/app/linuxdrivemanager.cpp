@@ -270,6 +270,8 @@ void LinuxDrive::cancel()
 void LinuxDrive::restore()
 {
     mDebug() << this->metaObject()->className() << "Will now restore" << this->m_device;
+    mDebug() << this->metaObject()->className() << "Partition table:" << m_partitionTable 
+             << "Filesystem:" << m_filesystem << "Label:" << m_filesystemLabel;
 
     if (!m_process)
         m_process = new QProcess(this);
@@ -291,6 +293,9 @@ void LinuxDrive::restore()
     }
     args << "restore";
     args << m_device;
+    args << m_partitionTable;
+    args << m_filesystem;
+    args << m_filesystemLabel;
     mDebug() << this->metaObject()->className() << "Helper command will be" << args;
     m_process->setArguments(args);
 

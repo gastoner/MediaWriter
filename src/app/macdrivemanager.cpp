@@ -135,6 +135,9 @@ void MacDrive::cancel()
 void MacDrive::restore()
 {
     mCritical() << "starting to restore";
+    mCritical() << "Partition table:" << m_partitionTable 
+                << "Filesystem:" << m_filesystem << "Label:" << m_filesystemLabel;
+    
     if (m_child)
         m_child->deleteLater();
 
@@ -155,6 +158,9 @@ void MacDrive::restore()
     QStringList args;
     args.append("restore");
     args.append(m_bsdDevice);
+    args.append(m_partitionTable.toUpper());  // GPT or MBR
+    args.append(m_filesystem);
+    args.append(m_filesystemLabel.isEmpty() ? "FLASHDISK" : m_filesystemLabel);
     m_child->setArguments(args);
 
     m_child->setProcessChannelMode(QProcess::ForwardedChannels);

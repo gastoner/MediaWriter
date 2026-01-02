@@ -34,13 +34,24 @@ int main(int argc, char *argv[])
         app.installTranslator(&translator);
     }
 
-    if (app.arguments().count() == 3 && app.arguments()[1] == "restore") {
-        new RestoreJob(app.arguments()[2]);
+    if (app.arguments().count() >= 3 && app.arguments()[1] == "restore") {
+        // restore <device> [partitionTable] [filesystem] [label]
+        QString device = app.arguments()[2];
+        QString partitionTable = app.arguments().count() > 3 ? app.arguments()[3] : "GPT";
+        QString filesystem = app.arguments().count() > 4 ? app.arguments()[4] : "ExFAT";
+        QString label = app.arguments().count() > 5 ? app.arguments()[5] : "FLASHDISK";
+        new RestoreJob(device, partitionTable, filesystem, label);
     } else if (app.arguments().count() == 4 && app.arguments()[1] == "write") {
         new WriteJob(app.arguments()[2], app.arguments()[3]);
     } else {
         QTextStream err(stderr);
-        err << "Helper: Wrong arguments entered";
+        err << "Helper: Wrong arguments entered\n";
+        err << "Usage:\n";
+        err << "  helper write <image> <device>\n";
+        err << "  helper restore <device> [partitionTable] [filesystem] [label]\n";
+        err << "    partitionTable: GPT (default), MBR, or APM\n";
+        err << "    filesystem: ExFAT (default), FAT32, HFS+, APFS\n";
+        err << "    label: volume label (default: FLASHDISK)\n";
         return 1;
     }
     return app.exec();

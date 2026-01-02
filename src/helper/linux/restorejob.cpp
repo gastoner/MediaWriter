@@ -32,8 +32,14 @@
 #include <stdio.h>
 #include <sys/types.h>
 
-RestoreJob::RestoreJob(const QString &where)
+RestoreJob::RestoreJob(const QString &where,
+                       const QString &partitionTable,
+                       const QString &filesystem,
+                       const QString &label)
     : Job(where)
+    , m_partitionTable(partitionTable.isEmpty() ? "gpt" : partitionTable)
+    , m_filesystem(filesystem.isEmpty() ? "exfat" : filesystem)
+    , m_label(label)
 {
     QTimer::singleShot(0, this, SLOT(work()));
 }
@@ -124,7 +130,8 @@ void RestoreJob::work()
         qApp->exit(1);
     }
 
-    QDBusReply<void> formatReply = device.call("Format", "gpt", Properties());
+    // Format with configurable partition table (GPT or MBR/dos)
+    QDBusReply<void> formatReply = device.call("Format", m_partitionTable, Properties());
     if (!formatReply.isValid() && formatReply.error().type() != QDBusError::NoReply) {
         err << formatReply.error().message() << "\n";
         err.flush();
@@ -132,8 +139,24 @@ void RestoreJob::work()
         return;
     }
 
-    QDBusInterface partitionTable("org.freedesktop.UDisks2", where, "org.freedesktop.UDisks2.PartitionTable", QDBusConnection::systemBus(), this);
-    QDBusReply<QDBusObjectPath> partitionReply = partitionTable.call("CreatePartition", 1ULL, 0ULL, "", "", Properties());
+    // Determine the partition type GUID/ID based on partition table and filesystem
+    QString partType;
+    if (m_partitionTable == "dos") {
+        // MBR partition type IDs
+        if (m_filesystem == "ntfs" || m_filesystem == "exfat")
+            partType = "0x07";  // HPFS/NTFS/exFAT
+        else if (m_filesystem == "vfat" || m_filesystem == "fat32")
+            partType = "0x0c";  // FAT32 LBA
+        else if (m_filesystem == "ext2" || m_filesystem == "ext3" || m_filesystem == "ext4" || 
+                 m_filesystem == "btrfs" || m_filesystem == "xfs")
+            partType = "0x83";  // Linux native
+        else
+            partType = "0x07";  // Default to NTFS/exFAT type
+    }
+    // For GPT, leave partType empty - UDisks2 will auto-detect based on filesystem
+
+    QDBusInterface partitionTableIface("org.freedesktop.UDisks2", where, "org.freedesktop.UDisks2.PartitionTable", QDBusConnection::systemBus(), this);
+    QDBusReply<QDBusObjectPath> partitionReply = partitionTableIface.call("CreatePartition", 1ULL, 0ULL, partType, "", Properties());
     if (!partitionReply.isValid()) {
         err << partitionReply.error().message();
         err.flush();
@@ -142,7 +165,20 @@ void RestoreJob::work()
     }
     QString partitionPath = partitionReply.value().path();
     QDBusInterface partition("org.freedesktop.UDisks2", partitionPath, "org.freedesktop.UDisks2.Block", QDBusConnection::systemBus(), this);
-    QDBusReply<void> formatPartitionReply = partition.call("Format", "exfat", Properties{{"update-partition-type", true}});
+
+    // Prepare format options with optional label
+    Properties formatOptions{{"update-partition-type", true}};
+    if (!m_label.isEmpty()) {
+        formatOptions["label"] = m_label;
+    }
+
+    // Format with configurable filesystem
+    QString fsType = m_filesystem.toLower();
+    // Normalize some filesystem names for UDisks2
+    if (fsType == "fat32")
+        fsType = "vfat";
+    
+    QDBusReply<void> formatPartitionReply = partition.call("Format", fsType, formatOptions);
     if (!formatPartitionReply.isValid() && formatPartitionReply.error().type() != QDBusError::NoReply) {
         err << formatPartitionReply.error().message() << "\n";
         err.flush();

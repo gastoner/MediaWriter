@@ -25,9 +25,15 @@
 #include <QTextStream>
 #include <QTimer>
 
-RestoreJob::RestoreJob(const QString &where)
+RestoreJob::RestoreJob(const QString &where,
+                       const QString &partitionTable,
+                       const QString &filesystem,
+                       const QString &label)
     : QObject(nullptr)
     , where(where)
+    , m_partitionTable(partitionTable.isEmpty() ? "GPT" : partitionTable)
+    , m_filesystem(filesystem.isEmpty() ? "ExFAT" : filesystem)
+    , m_label(label.isEmpty() ? "FLASHDISK" : label)
 {
     QTimer::singleShot(0, this, &RestoreJob::work);
 }
@@ -40,14 +46,43 @@ void RestoreJob::work()
     diskUtil.start();
     diskUtil.waitForFinished();
 
+    // Map partition table type to diskutil format
+    // diskutil uses: GPT, MBR, APM (Apple Partition Map)
+    QString partScheme = m_partitionTable.toUpper();
+    if (partScheme == "DOS")
+        partScheme = "MBR";
+    else if (partScheme != "GPT" && partScheme != "MBR" && partScheme != "APM")
+        partScheme = "GPT";  // Default to GPT
+
+    // Map filesystem to diskutil format names
+    // diskutil formats: ExFAT, FAT32 (or MS-DOS FAT32), JHFS+ (or HFS+), APFS, Free Space
+    QString fsFormat = m_filesystem;
+    QString fsLower = m_filesystem.toLower();
+    if (fsLower == "fat32" || fsLower == "vfat")
+        fsFormat = "FAT32";
+    else if (fsLower == "exfat")
+        fsFormat = "ExFAT";
+    else if (fsLower == "hfs+" || fsLower == "hfs")
+        fsFormat = "JHFS+";
+    else if (fsLower == "apfs")
+        fsFormat = "APFS";
+    // Note: ext2/3/4, btrfs, xfs, ntfs are not natively supported by diskutil
+    // For these, we would need additional tools or fall back to ExFAT
+    else if (fsLower == "ext4" || fsLower == "ext3" || fsLower == "ext2" ||
+             fsLower == "btrfs" || fsLower == "xfs" || fsLower == "ntfs") {
+        QTextStream err(stderr);
+        err << "Warning: " << m_filesystem << " is not supported by diskutil. Using ExFAT instead.\n";
+        fsFormat = "ExFAT";
+    }
+
     diskUtil.setProcessChannelMode(QProcess::ForwardedChannels);
     diskUtil.setArguments(QStringList() << "partitionDisk" << where << "1"
-                                        << "MBR"
-                                        << "ExFAT"
-                                        << "FLASHDISK"
+                                        << partScheme
+                                        << fsFormat
+                                        << m_label
                                         << "R");
     diskUtil.start();
     diskUtil.waitForFinished();
 
-    qApp->exit();
+    qApp->exit(diskUtil.exitCode());
 }

@@ -26,12 +26,18 @@ class RestoreJob : public QObject
 {
     Q_OBJECT
 public:
-    explicit RestoreJob(const QString &where);
+    explicit RestoreJob(const QString &where,
+                        const QString &partitionTable = "GPT",
+                        const QString &filesystem = "ExFAT",
+                        const QString &label = "FLASHDISK");
 private slots:
     void work();
 
 private:
     QString where;
+    QString m_partitionTable;
+    QString m_filesystem;
+    QString m_label;
 };
 
 #endif // RESTOREJOB_H

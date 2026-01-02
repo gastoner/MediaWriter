@@ -25,8 +25,15 @@
 #include <QThread>
 #include <QTimer>
 
-RestoreJob::RestoreJob(const QString &driveNumber, QObject *parent)
+RestoreJob::RestoreJob(const QString &driveNumber,
+                       const QString &partitionTable,
+                       const QString &filesystem,
+                       const QString &label,
+                       QObject *parent)
     : QObject(parent)
+    , m_partitionTable(partitionTable.isEmpty() ? "gpt" : partitionTable.toLower())
+    , m_filesystem(filesystem.isEmpty() ? "exfat" : filesystem.toLower())
+    , m_label(label)
 {
     auto index = driveNumber.toInt();
     m_diskManagement = std::make_unique<WinDiskManagement>(this, true);
@@ -126,14 +133,28 @@ void RestoreJob::work()
     }
 
     /*
-     * 7) Created a new GPT partition on the drive
+     * 7) Create a new partition on the drive with the specified partition table type
      *    Uses DeviceIoControl(IOCTL_DISK_CREATE_DISK) with DeviceIoControl(IOCTL_DISK_SET_DRIVE_LAYOUT_EX) from WinAPI
      */
-    if (!m_diskManagement->createGPTPartition(drive, m_disk->size(), m_disk->sectorSize())) {
-        m_diskManagement->logMessage(QtCriticalMsg, "Failed to create a GPT partition on the drive");
-        m_err << tr("Failed to create a GPT partition on the drive") << "\n";
-        m_err.flush();
-        qApp->exit(1);
+    bool partitionCreated = false;
+    if (m_partitionTable == "dos" || m_partitionTable == "mbr") {
+        // Create MBR partition
+        partitionCreated = m_diskManagement->createMBRPartition(drive, m_disk->size(), m_disk->sectorSize());
+        if (!partitionCreated) {
+            m_diskManagement->logMessage(QtCriticalMsg, "Failed to create an MBR partition on the drive");
+            m_err << tr("Failed to create an MBR partition on the drive") << "\n";
+            m_err.flush();
+            qApp->exit(1);
+        }
+    } else {
+        // Default to GPT partition
+        partitionCreated = m_diskManagement->createGPTPartition(drive, m_disk->size(), m_disk->sectorSize());
+        if (!partitionCreated) {
+            m_diskManagement->logMessage(QtCriticalMsg, "Failed to create a GPT partition on the drive");
+            m_err << tr("Failed to create a GPT partition on the drive") << "\n";
+            m_err.flush();
+            qApp->exit(1);
+        }
     }
 
     // FIXME: isn't this too much? We used to have this even before as
@@ -168,12 +189,12 @@ void RestoreJob::work()
     }
 
     /*
-     * 10) Format the partition to exFAT
+     * 10) Format the partition with the specified filesystem
      *     Uses "Format" method on the MSFT_Volume object using WMI query.
      */
-    if (!m_diskManagement->formatPartition(driveLetter)) {
-        m_diskManagement->logMessage(QtCriticalMsg, "Failed to format the partition to exFAT");
-        m_err << tr("Failed to format the partition to exFAT") << "\n";
+    if (!m_diskManagement->formatPartition(driveLetter, m_filesystem, m_label)) {
+        m_diskManagement->logMessage(QtCriticalMsg, QString("Failed to format the partition to %1").arg(m_filesystem).toStdString().c_str());
+        m_err << tr("Failed to format the partition to %1").arg(m_filesystem) << "\n";
         m_err.flush();
         qApp->exit(1);
     }

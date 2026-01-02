@@ -38,6 +38,165 @@ Page {
         wrapMode: QQC2.Label.Wrap
     }
 
+    // Restore Options Section
+    ColumnLayout {
+        visible: lastRestoreable.restoreStatus == Units.RestoreStatus.Contains_Live
+        Layout.fillWidth: true
+        spacing: units.gridUnit / 2
+
+        // Partition Table Selection
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: units.gridUnit / 4
+
+            QQC2.Label {
+                text: qsTr("Partition Table")
+                font.bold: true
+            }
+
+            QQC2.ComboBox {
+                id: partitionTableCombo
+                Layout.fillWidth: true
+                model: ListModel {
+                    ListElement { text: "GPT (UEFI, recommended)"; value: "gpt" }
+                    ListElement { text: "MBR (Legacy BIOS)"; value: "dos" }
+                }
+                textRole: "text"
+                currentIndex: lastRestoreable.partitionTable === "dos" ? 1 : 0
+                onCurrentIndexChanged: {
+                    if (lastRestoreable)
+                        lastRestoreable.partitionTable = model.get(currentIndex).value
+                }
+            }
+
+            QQC2.Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                font.italic: true
+                font.pointSize: Qt.application.font.pointSize * 0.9
+                opacity: 0.7
+                text: partitionTableCombo.currentIndex === 0
+                    ? qsTr("GPT supports drives larger than 2TB and is required for UEFI boot")
+                    : qsTr("MBR is required for legacy BIOS systems and some older devices")
+            }
+        }
+
+        // Filesystem Selection
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: units.gridUnit / 4
+
+            QQC2.Label {
+                text: qsTr("Filesystem")
+                font.bold: true
+            }
+
+            QQC2.ComboBox {
+                id: filesystemCombo
+                Layout.fillWidth: true
+                model: lastRestoreable ? lastRestoreable.availableFilesystems : []
+                
+                // Find the index matching the current filesystem (case-insensitive)
+                function findFilesystemIndex() {
+                    if (!lastRestoreable || !model) return 0
+                    var currentFs = lastRestoreable.filesystem.toLowerCase()
+                    for (var i = 0; i < model.length; i++) {
+                        if (model[i].toLowerCase() === currentFs) {
+                            return i
+                        }
+                    }
+                    return 0
+                }
+                
+                Component.onCompleted: {
+                    currentIndex = findFilesystemIndex()
+                }
+                
+                onActivated: function(index) {
+                    if (lastRestoreable && model[index]) {
+                        lastRestoreable.filesystem = model[index].toLowerCase()
+                    }
+                }
+            }
+
+            QQC2.Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                font.italic: true
+                font.pointSize: Qt.application.font.pointSize * 0.9
+                opacity: 0.7
+                text: {
+                    if (!filesystemCombo.currentText) return ""
+                    var fs = filesystemCombo.currentText.toLowerCase()
+                    if (fs === "exfat")
+                        return qsTr("exFAT works on Windows, Mac, and Linux. Supports large files.")
+                    else if (fs === "fat32" || fs === "vfat")
+                        return qsTr("FAT32 has maximum compatibility but limits files to 4GB.")
+                    else if (fs === "ntfs")
+                        return qsTr("NTFS is the Windows native filesystem. Read-only on some systems.")
+                    else if (fs === "ext4")
+                        return qsTr("ext4 is the standard Linux filesystem with journaling.")
+                    else if (fs === "ext3" || fs === "ext2")
+                        return qsTr("ext2/3 are older Linux filesystems.")
+                    else if (fs === "btrfs")
+                        return qsTr("Btrfs supports snapshots and compression. Linux only.")
+                    else if (fs === "xfs")
+                        return qsTr("XFS is optimized for large files and high performance.")
+                    else if (fs === "hfs+")
+                        return qsTr("HFS+ is the macOS Extended filesystem.")
+                    else if (fs === "apfs")
+                        return qsTr("APFS is the modern Apple filesystem.")
+                    return ""
+                }
+            }
+        }
+
+        // Volume Label
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: units.gridUnit / 4
+
+            QQC2.Label {
+                text: qsTr("Volume Label")
+                font.bold: true
+            }
+
+            QQC2.TextField {
+                id: labelField
+                Layout.fillWidth: true
+                placeholderText: qsTr("Enter label (optional)")
+                text: lastRestoreable ? lastRestoreable.filesystemLabel : ""
+                maximumLength: {
+                    if (!filesystemCombo.currentText) return 32
+                    var fs = filesystemCombo.currentText.toLowerCase()
+                    if (fs === "vfat" || fs === "fat32" || fs === "exfat")
+                        return 11
+                    else if (fs === "ntfs")
+                        return 32
+                    else if (fs.startsWith("ext"))
+                        return 16
+                    return 32
+                }
+                validator: RegularExpressionValidator {
+                    regularExpression: /[A-Za-z0-9_\-]*/
+                }
+                onTextChanged: {
+                    if (lastRestoreable)
+                        lastRestoreable.filesystemLabel = text.toUpperCase()
+                }
+            }
+
+            QQC2.Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                font.italic: true
+                font.pointSize: Qt.application.font.pointSize * 0.9
+                opacity: 0.7
+                text: qsTr("The label will be displayed when the drive is mounted")
+            }
+        }
+    }
+
     ColumnLayout {
         id: progress
         visible: lastRestoreable.restoreStatus == Units.RestoreStatus.Restoring

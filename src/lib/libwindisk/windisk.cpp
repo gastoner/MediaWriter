@@ -458,13 +458,25 @@ bool WinDiskManagement::clearPartitions(qint32 index)
     return true;
 }
 
-bool WinDiskManagement::formatPartition(const QChar &driveLetter)
+bool WinDiskManagement::formatPartition(const QChar &driveLetter, const QString &filesystem, const QString &label)
 {
-    logMessage(QtDebugMsg, QStringLiteral("Formatting partition mounted to drive letter %1:").arg(driveLetter));
+    logMessage(QtDebugMsg, QStringLiteral("Formatting partition mounted to drive letter %1: with filesystem %2").arg(driveLetter).arg(filesystem));
 
     if (!m_wmiInitialized) {
         logMessage(QtCriticalMsg, QStringLiteral("WMI interface is not initialized"));
         return false;
+    }
+
+    // Map filesystem names to Windows format names
+    QString fsName = filesystem.toLower();
+    std::wstring wfsName;
+    if (fsName == "fat32" || fsName == "vfat") {
+        wfsName = L"FAT32";
+    } else if (fsName == "ntfs") {
+        wfsName = L"NTFS";
+    } else {
+        // Default to exFAT
+        wfsName = L"exFAT";
     }
 
     HRESULT res = S_OK;
@@ -544,7 +556,7 @@ bool WinDiskManagement::formatPartition(const QChar &driveLetter)
         VARIANT var;
         VariantInit(&var);
         var.vt = VT_BSTR;
-        var.bstrVal = _bstr_t(L"exFAT");
+        var.bstrVal = _bstr_t(wfsName.c_str());
         res = pInParams->Put(L"FileSystem", 0, &var, 0);
         VariantClear(&var);
 
@@ -552,6 +564,19 @@ bool WinDiskManagement::formatPartition(const QChar &driveLetter)
             _com_error err(res);
             logMessage(QtCriticalMsg, QStringLiteral("Failed to set 'FileSystem' parameter. Error = %1").arg(QString::fromWCharArray(err.ErrorMessage())));
             return false;
+        }
+
+        // Set the volume label if provided
+        if (!label.isEmpty()) {
+            VariantInit(&var);
+            var.vt = VT_BSTR;
+            var.bstrVal = _bstr_t(label.toStdWString().c_str());
+            res = pInParams->Put(L"FileSystemLabel", 0, &var, 0);
+            VariantClear(&var);
+
+            if (FAILED(res)) {
+                logMessage(QtWarningMsg, QStringLiteral("Failed to set 'FileSystemLabel' parameter, continuing without label."));
+            }
         }
 
         var.vt = VT_BOOL;
@@ -580,7 +605,7 @@ bool WinDiskManagement::formatPartition(const QChar &driveLetter)
                 VariantClear(&returnValueVar);
                 return false;
             } else {
-                logMessage(QtDebugMsg, QStringLiteral("Volume successfully formatted to exFat."));
+                logMessage(QtDebugMsg, QStringLiteral("Volume successfully formatted to %1.").arg(QString::fromStdWString(wfsName)));
                 volumeFound = true;
             }
             pOutParams->Release();
@@ -982,6 +1007,72 @@ bool WinDiskManagement::createGPTPartition(HANDLE driveHandle, quint64 diskSize,
     }
 
     logMessage(QtDebugMsg, QStringLiteral("Successfully created GPT partition over the whole disk."));
+    return true;
+}
+
+bool WinDiskManagement::createMBRPartition(HANDLE driveHandle, quint64 diskSize, quint32 sectorSize)
+{
+    logMessage(QtDebugMsg, QStringLiteral("Creating MBR partition table"));
+
+    BOOL ret;
+
+    CREATE_DISK createDisk = {PARTITION_STYLE_MBR, {{0}}};
+    createDisk.Mbr.Signature = 0xDEADBEEF;  // Arbitrary signature
+
+    ret = DeviceIoControl(driveHandle, IOCTL_DISK_CREATE_DISK, &createDisk, sizeof(createDisk), NULL, 0, NULL, NULL);
+    if (!ret) {
+        logMessage(QtCriticalMsg, QStringLiteral("Failed to create MBR partition table on the disk."));
+        return false;
+    }
+
+    ret = DeviceIoControl(driveHandle, IOCTL_DISK_UPDATE_PROPERTIES, NULL, 0, NULL, 0, NULL, NULL);
+    if (!ret) {
+        logMessage(QtCriticalMsg, QStringLiteral("Couldn't update disk properties."));
+        return false;
+    }
+
+    // Calculate aligned partition boundaries
+    // MBR traditionally starts at sector 63, but modern drives use 2048 for 4K alignment
+    quint64 startOffset = 2048 * sectorSize;  // Start at sector 2048 (1MB aligned)
+    quint64 partitionSize = diskSize - startOffset;
+    // Align partition size to sector boundary
+    partitionSize = (partitionSize / sectorSize) * sectorSize;
+
+    DRIVE_LAYOUT_INFORMATION_EX driveLayout = {0};
+    driveLayout.PartitionStyle = PARTITION_STYLE_MBR;
+    driveLayout.PartitionCount = 4;  // MBR always has 4 partition entries
+    driveLayout.Mbr.Signature = createDisk.Mbr.Signature;
+
+    // First partition - primary, active
+    PARTITION_INFORMATION_EX &partitionInfo = driveLayout.PartitionEntry[0];
+    partitionInfo.PartitionStyle = PARTITION_STYLE_MBR;
+    partitionInfo.StartingOffset.QuadPart = startOffset;
+    partitionInfo.PartitionLength.QuadPart = partitionSize;
+    partitionInfo.PartitionNumber = 1;
+    partitionInfo.RewritePartition = TRUE;
+    partitionInfo.Mbr.PartitionType = 0x07;  // IFS (NTFS/exFAT)
+    partitionInfo.Mbr.BootIndicator = TRUE;  // Active/bootable
+    partitionInfo.Mbr.RecognizedPartition = TRUE;
+    partitionInfo.Mbr.HiddenSectors = (DWORD)(startOffset / sectorSize);
+
+    // Clear remaining partition entries
+    for (int i = 1; i < 4; i++) {
+        memset(&driveLayout.PartitionEntry[i], 0, sizeof(PARTITION_INFORMATION_EX));
+        driveLayout.PartitionEntry[i].PartitionStyle = PARTITION_STYLE_MBR;
+        driveLayout.PartitionEntry[i].RewritePartition = TRUE;
+    }
+
+    ret = DeviceIoControl(driveHandle, IOCTL_DISK_SET_DRIVE_LAYOUT_EX, &driveLayout, sizeof(driveLayout), NULL, 0, NULL, NULL);
+    if (!ret) {
+        logMessage(QtCriticalMsg, QStringLiteral("Failed to set MBR partition layout on the disk."));
+        return false;
+    }
+
+    if (!refreshPartitionLayout(driveHandle)) {
+        logMessage(QtWarningMsg, QStringLiteral("Couldn't update drive properties"));
+    }
+
+    logMessage(QtDebugMsg, QStringLiteral("Successfully created MBR partition over the whole disk."));
     return true;
 }
 

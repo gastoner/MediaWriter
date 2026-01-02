@@ -45,8 +45,8 @@ public:
     std::unique_ptr<WinDisk> getDiskDriveInformation(quint32 index, const QString &diskPath = QString());
     // Remove all partitions on device on given @index
     bool clearPartitions(qint32 index);
-    // Formats partition to exFAT on given @partitionPath
-    bool formatPartition(const QChar &driveLetter);
+    // Formats partition with given filesystem and label on given @driveLetter
+    bool formatPartition(const QChar &driveLetter, const QString &filesystem = "exfat", const QString &label = QString());
     // Refreshes disk drive on given @diskPath
     bool refreshDiskDrive(const QString &diskPath);
 
@@ -71,6 +71,8 @@ public:
     bool clearDiskDrive(HANDLE driveHandle);
     // Creates a GPT partition table on the drive provided by @driveHandle
     bool createGPTPartition(HANDLE driveHandle, quint64 diskSize, quint32 sectorSize);
+    // Creates an MBR partition table on the drive provided by @driveHandle
+    bool createMBRPartition(HANDLE driveHandle, quint64 diskSize, quint32 sectorSize);
     // Returns the GUID volume name
     QString getLogicalName(quint32 index, bool keepTrailingBackslash = true);
     // Refreshes the partition layout

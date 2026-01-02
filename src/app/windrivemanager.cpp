@@ -178,6 +178,9 @@ void WinDrive::cancel()
 void WinDrive::restore()
 {
     mDebug() << this->metaObject()->className() << "Preparing to restore disk" << m_device;
+    mDebug() << this->metaObject()->className() << "Partition table:" << m_partitionTable 
+             << "Filesystem:" << m_filesystem << "Label:" << m_filesystemLabel;
+    
     if (m_child)
         m_child->deleteLater();
 
@@ -198,6 +201,9 @@ void WinDrive::restore()
     QStringList args;
     args << "restore";
     args << QString("%1").arg(m_device);
+    args << m_partitionTable;
+    args << m_filesystem;
+    args << m_filesystemLabel;
     m_child->setArguments(args);
 
     // connect(m_process, &QProcess::readyRead, this, &LinuxDrive::onReadyRead);

@@ -137,6 +137,9 @@ protected:
  * @property name name of the drive, should be human-readable, in ideal case the model of the drive and its size
  * @property size the size of the drive, in bytes
  * @property restoreStatus the status of restoring the drive
+ * @property partitionTable the partition table type for restore (gpt or dos/mbr)
+ * @property filesystem the filesystem type for restore
+ * @property filesystemLabel the label to set on the filesystem
  */
 class Drive : public QObject
 {
@@ -148,6 +151,12 @@ class Drive : public QObject
     Q_PROPERTY(qreal size READ size CONSTANT)
     Q_PROPERTY(RestoreStatus restoreStatus READ restoreStatus NOTIFY restoreStatusChanged)
     Q_PROPERTY(bool delayedWrite READ delayedWrite WRITE setDelayedWrite NOTIFY delayedWriteChanged)
+
+    Q_PROPERTY(QString partitionTable READ partitionTable WRITE setPartitionTable NOTIFY partitionTableChanged)
+    Q_PROPERTY(QString filesystem READ filesystem WRITE setFilesystem NOTIFY filesystemChanged)
+    Q_PROPERTY(QString filesystemLabel READ filesystemLabel WRITE setFilesystemLabel NOTIFY filesystemLabelChanged)
+    Q_PROPERTY(QStringList availableFilesystems READ availableFilesystems CONSTANT)
+    Q_PROPERTY(QStringList availablePartitionTables READ availablePartitionTables CONSTANT)
 public:
     enum RestoreStatus {
         CLEAN = 0,
@@ -172,6 +181,18 @@ public:
 
     virtual void setDelayedWrite(const bool &o);
 
+    QString partitionTable() const;
+    void setPartitionTable(const QString &partitionTable);
+
+    QString filesystem() const;
+    void setFilesystem(const QString &filesystem);
+
+    QString filesystemLabel() const;
+    void setFilesystemLabel(const QString &label);
+
+    QStringList availableFilesystems() const;
+    QStringList availablePartitionTables() const;
+
     Q_INVOKABLE virtual void setImage(ReleaseVariant *data);
     Q_INVOKABLE virtual bool write(ReleaseVariant *data);
     Q_INVOKABLE virtual void cancel();
@@ -185,6 +206,9 @@ public slots:
 signals:
     void restoreStatusChanged();
     void delayedWriteChanged();
+    void partitionTableChanged();
+    void filesystemChanged();
+    void filesystemLabelChanged();
 
 protected:
     ReleaseVariant *m_image{nullptr};
@@ -194,6 +218,10 @@ protected:
     RestoreStatus m_restoreStatus{CLEAN};
     QString m_error{};
     bool m_delayedWrite{false};
+
+    QString m_partitionTable{"gpt"};
+    QString m_filesystem{"exfat"};
+    QString m_filesystemLabel{};
 };
 
 #endif // DRIVEMANAGER_H
